@@ -1,26 +1,61 @@
 /* JustPlay - a minimal WAV player for Windows.
  *
  * Usage: justplay <file.wav | directory>
+ *
+ * Built twice: justplay.exe is a console program, and justplayw.exe
+ * (JUSTPLAY_GUI) opens no window, for use as Explorer's default player.
  */
 #include <windows.h>
 #include <mmsystem.h>
 #include <shlwapi.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <wchar.h>
 
 #define JUSTPLAY_VERSION L"1.0.0"
 
+#ifdef JUSTPLAY_GUI
+#define JUSTPLAY_NAME L"justplayw"
+#else
+#define JUSTPLAY_NAME L"justplay"
+#endif
+
+enum { MSG_PROGRESS, MSG_HELP, MSG_ERROR };
+
+/* Print a message. The windowless build has no console, so it shows help
+ * and errors in a message box and drops progress messages. */
+static void report(int kind, const wchar_t *fmt, ...)
+{
+    wchar_t text[1024];
+    va_list ap;
+
+    va_start(ap, fmt);
+    vswprintf(text, sizeof text / sizeof *text, fmt, ap);
+    va_end(ap);
+
+#ifdef JUSTPLAY_GUI
+    if (kind != MSG_PROGRESS)
+        MessageBoxW(NULL, text, L"JustPlay",
+                    kind == MSG_ERROR ? MB_ICONERROR : MB_ICONINFORMATION);
+#else
+    FILE *out = kind == MSG_ERROR ? stderr : stdout;
+    fputws(text, out);
+    fflush(out);
+#endif
+}
+
 static void print_help(void)
 {
-    wprintf(L"JustPlay %ls - minimal WAV player\n"
-            L"\n"
-            L"Usage: justplay <file.wav | directory>\n"
-            L"  file.wav   play the file on the default output device\n"
-            L"  directory  play all .wav files in it, in Explorer sort order\n"
-            L"\n"
-            L"Paths longer than 260 characters are not supported.\n",
-            JUSTPLAY_VERSION);
+    report(MSG_HELP,
+           L"JustPlay %ls - minimal WAV player\n"
+           L"\n"
+           L"Usage: %ls <file.wav | directory>\n"
+           L"  file.wav   play the file on the default output device\n"
+           L"  directory  play all .wav files in it, in Explorer sort order\n"
+           L"\n"
+           L"Paths longer than 260 characters are not supported.\n",
+           JUSTPLAY_VERSION, JUSTPLAY_NAME);
 }
 
 /* Read a whole file into memory. Some virtual drives (e.g. Frame.io) break
@@ -56,18 +91,17 @@ static int play_file(const wchar_t *path)
     void *data;
     BOOL ok;
 
-    wprintf(L"Playing %ls\n", path);
-    fflush(stdout);
+    report(MSG_PROGRESS, L"Playing %ls\n", path);
 
     data = load_file(path);
     if (!data) {
-        fwprintf(stderr, L"Error: cannot read %ls\n", path);
+        report(MSG_ERROR, L"Error: cannot read %ls\n", path);
         return 0;
     }
     ok = PlaySoundW(data, NULL, SND_MEMORY | SND_SYNC | SND_NODEFAULT);
     free(data);
     if (!ok) {
-        fwprintf(stderr, L"Error: cannot play %ls\n", path);
+        report(MSG_ERROR, L"Error: cannot play %ls\n", path);
         return 0;
     }
     return 1;
@@ -90,7 +124,7 @@ static int play_directory(const wchar_t *dir)
     swprintf(pattern, MAX_PATH, L"%ls\\*.wav", dir);
     h = FindFirstFileW(pattern, &fd);
     if (h == INVALID_HANDLE_VALUE) {
-        fwprintf(stderr, L"No .wav files found in %ls\n", dir);
+        report(MSG_ERROR, L"No .wav files found in %ls\n", dir);
         return 1;
     }
 
@@ -101,7 +135,7 @@ static int play_directory(const wchar_t *dir)
             cap = cap ? cap * 2 : 32;
             names = realloc(names, cap * sizeof *names);
             if (!names) {
-                fwprintf(stderr, L"Out of memory\n");
+                report(MSG_ERROR, L"Out of memory\n");
                 FindClose(h);
                 return 1;
             }
@@ -134,7 +168,7 @@ int wmain(int argc, wchar_t **argv)
 
     attr = GetFileAttributesW(argv[1]);
     if (attr == INVALID_FILE_ATTRIBUTES) {
-        fwprintf(stderr, L"Error: %ls not found\n", argv[1]);
+        report(MSG_ERROR, L"Error: %ls not found\n", argv[1]);
         return 1;
     }
 

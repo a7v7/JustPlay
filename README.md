@@ -30,6 +30,12 @@ Explorer sort order means `track2.wav` plays before `track10.wav`, the same orde
 
 There are no switches, no config files and no playlists.
 
+### Double-clicking WAVs in Explorer
+
+Use `justplayw.exe` as the default app for `.wav` files. It's the same player, but it doesn't open a console window, so clips play silently in the background. If something goes wrong (for example, a file that isn't really a WAV), it shows the error in a message box.
+
+Use `justplay.exe` from the command line, where you want to see what's playing.
+
 ## Building
 
 You'll need [MSYS2](https://www.msys2.org/) with the UCRT64 toolchain, CMake and Ninja:
@@ -45,7 +51,7 @@ cmake --preset release
 cmake --build --preset release
 ```
 
-This produces `build/release/justplay.exe`. It's statically linked, so you can copy it anywhere on your `PATH` and it runs without any MSYS2 DLLs. For a debug build, use the `debug` preset instead (output goes to `build/debug`).
+This produces `build/release/justplay.exe` and `build/release/justplayw.exe`. They're statically linked, so you can copy them anywhere on your `PATH` and they run without any MSYS2 DLLs. For a debug build, use the `debug` preset instead (output goes to `build/debug`).
 
 ## Limitations
 
