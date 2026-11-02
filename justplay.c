@@ -23,11 +23,50 @@ static void print_help(void)
             JUSTPLAY_VERSION);
 }
 
+/* Read a whole file into memory. Some virtual drives (e.g. Frame.io) break
+ * PlaySound's SND_FILENAME access, but ordinary reads work everywhere. */
+static void *load_file(const wchar_t *path)
+{
+    HANDLE h;
+    LARGE_INTEGER size;
+    char *buf = NULL;
+    DWORD total = 0, got;
+
+    h = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                    FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    if (h == INVALID_HANDLE_VALUE)
+        return NULL;
+
+    if (GetFileSizeEx(h, &size) && size.QuadPart > 0 && size.QuadPart < 0x7fffffff)
+        buf = malloc((size_t)size.QuadPart);
+
+    while (buf && total < (DWORD)size.QuadPart) {
+        if (!ReadFile(h, buf + total, (DWORD)size.QuadPart - total, &got, NULL) || got == 0) {
+            free(buf);
+            buf = NULL;
+        }
+        total += got;
+    }
+    CloseHandle(h);
+    return buf;
+}
+
 static int play_file(const wchar_t *path)
 {
+    void *data;
+    BOOL ok;
+
     wprintf(L"Playing %ls\n", path);
     fflush(stdout);
-    if (!PlaySoundW(path, NULL, SND_FILENAME | SND_SYNC | SND_NODEFAULT)) {
+
+    data = load_file(path);
+    if (!data) {
+        fwprintf(stderr, L"Error: cannot read %ls\n", path);
+        return 0;
+    }
+    ok = PlaySoundW(data, NULL, SND_MEMORY | SND_SYNC | SND_NODEFAULT);
+    free(data);
+    if (!ok) {
         fwprintf(stderr, L"Error: cannot play %ls\n", path);
         return 0;
     }
