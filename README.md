@@ -32,15 +32,20 @@ There are no switches, no config files and no playlists.
 
 ## Building
 
-You'll need [MSYS2](https://www.msys2.org/) with the UCRT64 GCC toolchain, plus CMake.
+You'll need [MSYS2](https://www.msys2.org/) with the UCRT64 toolchain, CMake and Ninja:
 
 ```bash
-export PATH="/c/msys64/ucrt64/bin:/c/msys64/usr/bin:$PATH"
-cmake -S . -B build -G "MSYS Makefiles" -DCMAKE_C_COMPILER=C:/msys64/ucrt64/bin/gcc.exe -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
 ```
 
-This produces `build/justplay.exe`. It's statically linked, so you can copy it anywhere on your `PATH` and it runs without any MSYS2 DLLs.
+From an MSYS2 UCRT64 shell:
+
+```bash
+cmake --preset release
+cmake --build --preset release
+```
+
+This produces `build/release/justplay.exe`. It's statically linked, so you can copy it anywhere on your `PATH` and it runs without any MSYS2 DLLs. For a debug build, use the `debug` preset instead (output goes to `build/debug`).
 
 ## Limitations
 
